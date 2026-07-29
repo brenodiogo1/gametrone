@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chronicles of Aetheria - JOGAR OFFLINE IMEDIATO</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    /* Estilo CSS embutido completo para evitar bloqueios CORS offline */
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body, html { width: 100%; height: 100%; overflow: hidden; font-family: 'Montserrat', sans-serif; background-color: #0b0c10; color: #eee; }
+    
+    #game-canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+    #hud-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+    .interactive { pointer-events: auto; }
+
+    /* HUD PANELS */
+    .shadow-box { background: rgba(15, 17, 23, 0.88); border: 1.5px solid #c5a880; box-shadow: 0 4px 25px rgba(0,0,0,0.6); border-radius: 8px; padding: 12px; }
+    
+    /* Profile */
+    .hud-profile { position: absolute; top: 20px; left: 20px; width: 300px; display: flex; gap: 12px; align-items: center; }
+    .avatar { font-size: 2.2rem; width: 50px; height: 50px; background: rgba(197, 168, 128, 0.15); border: 1.5px solid #c5a880; border-radius: 50%; display: flex; justify-content: center; align-items: center; }
+    .profile-details { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .char-name { font-family: 'Cinzel', serif; font-weight: 700; font-size: 0.95rem; color: #c5a880; }
+    .lvl-badge { font-size: 0.75rem; color: #aaa; }
+
+    /* Progress Bars */
+    .bar { width: 100%; height: 14px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; position: relative; overflow: hidden; margin-top: 3px; }
+    .bar-fill { height: 100%; width: 100%; transition: width 0.2s ease; }
+    .bar-fill.hp { background: linear-gradient(90deg, #d32f2f, #f44336); }
+    .bar-fill.mp { background: linear-gradient(90deg, #1976d2, #2196f3); }
+    .bar-fill.xp { background: linear-gradient(90deg, #7b1fa2, #9c27b0); width: 0%; }
+    .bar-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 0.65rem; font-weight: 700; text-shadow: 1px 1px 1px #000; }
+    .gold { color: #ffd700; font-size: 0.8rem; font-weight: 700; margin-top: 2px; }
+
+    /* Target */
+    .hud-target { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 240px; text-align: center; display: none; }
+    .target-name { font-size: 0.85rem; font-weight: 700; color: #f44336; }
+
+    /* Quests Tracker */
+    .quest-tracker { position: absolute; top: 20px; right: 20px; width: 220px; }
+    .quest-tracker h3 { font-family: 'Cinzel', serif; font-size: 0.8rem; color: #c5a880; border-bottom: 1px solid rgba(197, 168, 128, 0.2); padding-bottom: 3px; margin-bottom: 6px; }
+    .quest-item { font-size: 0.75rem; border-left: 2px solid #8a30d6; padding-left: 6px; margin-top: 5px; }
+    .quest-item.complete { border-left-color: #43a047; }
+
+    /* Hotbar */
+    .hud-hotbar { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; padding: 8px; }
+    .slot { width: 44px; height: 44px; background: rgba(0,0,0,0.6); border: 1.5px solid rgba(197, 168, 128, 0.3); border-radius: 6px; display: flex; justify-content: center; align-items: center; position: relative; cursor: pointer; }
+    .slot:hover { border-color: #c5a880; transform: scale(1.05); }
+    .slot .icon { font-size: 1.4rem; }
+    .slot .key { position: absolute; top: 1px; left: 3px; font-size: 0.6rem; color: #c5a880; font-weight: 700; }
+    .slot .qty { position: absolute; bottom: 2px; right: 3px; font-size: 0.6rem; background: rgba(0,0,0,0.8); color: #fff; padding: 1px 3px; border-radius: 2px; }
+    .cooldown { position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(0,0,0,0.6); transition: height 0.1s linear; }
+
+    /* Chat log */
+    .hud-chat { position: absolute; bottom: 20px; left: 20px; width: 340px; height: 160px; display: flex; flex-direction: column; }
+    .chat-log { flex: 1; overflow-y: auto; background: rgba(0,0,0,0.4); border-radius: 4px; padding: 6px; font-size: 0.7rem; line-height: 1.3; }
+    .chat-line.sys { color: #c397eb; }
+    .chat-line.loot { color: #ffd700; }
+    .chat-line.combat { color: #ff5252; }
+
+    /* Floating damage */
+    .floating-text { position: absolute; pointer-events: none; font-family: 'Cinzel', serif; font-size: 1.4rem; font-weight: 900; text-shadow: 1.5px 1px 3px #000; animation: floatUp 1s ease-out forwards; z-index: 100; }
+    @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-60px); opacity: 0; } }
+
+    /* Offline Watermark Badge */
+    .offline-badge { position: absolute; top: 200px; left: 20px; background: rgba(138, 48, 214, 0.2); border: 1px solid #8a30d6; color: #c397eb; padding: 6px 12px; font-size: 0.75rem; font-weight: 600; border-radius: 4px; }
+    .instructions { margin-top: 5px; font-size: 0.65rem; color: #aaa; }
+  </style>
+</head>
+<body>
+
+  <!-- 3D Canvas -->
+  <div id="game-canvas-container" class="interactive"></div>
+
+  <!-- HUD Overlay -->
+  <div id="hud-overlay">
+    
+    <!-- Profile -->
+    <div class="hud-profile shadow-box">
+      <div class="avatar">🛡️</div>
+      <div class="profile-details">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="char-name">Admin_Aetheria</span>
+          <span class="lvl-badge">Nível 99</span>
+        </div>
+        <div class="bar">
+          <div id="bar-hp" class="bar-fill hp" style="width: 100%;"></div>
+          <span class="bar-text"><span id="hp-cur">1605</span>/1605</span>
+        </div>
+        <div class="bar">
+          <div id="bar-mp" class="bar-fill mp" style="width: 100%;"></div>
+          <span class="bar-text"><span id="mp-cur">545</span>/545</span>
+        </div>
+        <div class="bar">
+          <div id="bar-xp" class="bar-fill xp" style="width: 0%;"></div>
+          <span class="bar-text">XP 0%</span>
+        </div>
+        <div class="gold">💰 999,999 Gold</div>
+      </div>
+    </div>
+
+    <!-- Target panel -->
+    <div id="target-panel" class="hud-target shadow-box">
+      <div class="target-name" id="target-name">Aether Slime</div>
+      <div class="bar" style="height:10px;">
+        <div id="target-hp-fill" class="bar-fill hp" style="width: 100%;"></div>
+      </div>
+      <div style="font-size:0.6rem; color:#aaa; margin-top:2px;">Elemento: <b id="target-element">Water</b></div>
+    </div>
+
+    <!-- Active Quests Tracker -->
+    <div class="quest-tracker shadow-box">
+      <h3>📜 Missões Ativas</h3>
+      <div id="quest-item-1" class="quest-item">
+        <b style="color:#fff;">Seu Primeiro Combate</b>
+        <p id="quest-item-text">Abater Aether Slimes: 0/3</p>
+      </div>
+    </div>
+
+    <!-- Offline Mode Watermark and Controls Panel -->
+    <div class="offline-badge shadow-box">
+      <span>🟢 MODO JOGO LOCAL INSTANTÂNEO</span>
+      <div class="instructions">
+        <p>• Andar: <b>W, A, S, D</b></p>
+        <p>• Câmera: Segure <b>Botão Direito do Mouse</b> e arraste</p>
+        <p>• Selecionar Slime: <b>Clique Esquerdo do Mouse</b></p>
+        <p>• Atacar: Aperte <b>Tecla 1</b> ou <b>Tecla 2</b></p>
+        <p>• Som Procedural Web Audio Ativo!</p>
+      </div>
+    </div>
+
+    <!-- Chat Logs -->
+    <div class="hud-chat shadow-box">
+      <div class="chat-log" id="chat-log">
+        <div class="chat-line sys">[SISTEMA] Modo offline ativado. Todo o processamento de física, IA de slimes e combate está rodando na sua CPU local!</div>
+        <div class="chat-line sys">[SISTEMA] Selecione um dos slimes azuis saltitantes no campo e aperte 1 para golpeá-lo!</div>
+      </div>
+    </div>
+
+    <!-- Hotbar -->
+    <div class="hud-hotbar interactive">
+      <div class="slot" id="hotbar-0">
+        <span class="key">1</span>
+        <span class="icon">👊</span>
+        <div class="cooldown" id="cd-0"></div>
+      </div>
+      <div class="slot" id="hotbar-1">
+        <span class="key">2</span>
+        <span class="icon">💥</span>
+        <div class="cooldown" id="cd-1"></div>
+      </div>
+      <div class="slot">
+        <span class="key">3</span>
+        <span class="icon">🛡️</span>
+      </div>
+      <div class="slot">
+        <span class="key">4</span>
+        <span class="icon">🔥</span>
+      </div>
+      <div class="slot">
+        <span class="key">5</span>
+        <span class="icon">💚</span>
+      </div>
+      <div class="slot">
+        <span class="key">6</span>
+        <span class="icon">🧪</span>
+        <span class="qty">15</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ====================================================================================
+    // --- MOTOR DE GAMEPLAY LOCAL OFFLINE INTEGRADOR ---
+    // Emula a lógica autoritativa do servidor em tempo real para permitir jogo imediato.
+    // ====================================================================================
+
+    // 1. Sintetizador de Som Web Audio API
+    let audioCtx = null;
+    function playSfx(type) {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'hit') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(150, now);
+          osc.frequency.exponentialRampToValueAtTime(20, now + 0.12);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+          osc.start(now); osc.stop(now + 0.12);
+        } else if (type === 'cast') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(350, now);
+          osc.frequency.exponentialRampToValueAtTime(950, now + 0.25);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+          osc.start(now); osc.stop(now + 0.25);
+        } else if (type === 'loot') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(800, now);
+          osc.frequency.setValueAtTime(1200, now + 0.08);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+          osc.start(now); osc.stop(now + 0.2);
+        } else if (type === 'level_up') {
+          [261, 329, 392, 523].forEach((f, i) => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            o.type = 'triangle'; o.frequency.setValueAtTime(f, now + i * 0.08);
+            g.gain.setValueAtTime(0.15, now + i * 0.08);
+            g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.3);
+            o.start(now + i * 0.08); o.stop(now + i * 0.08 + 0.3);
+          });
+        }
+      } catch(e) {}
+    }
+
+    // 2. Estado de Jogo Local
+    const player = { x: 0, y: 0.5, z: 0, r: 0, hp: 1605, maxHp: 1605, mp: 545, maxMp: 545, level: 99, killedSlimes: 0 };
+    const mobs = [];
+    let selectedMobId = null;
+
+    // Popula 6 slimes azuis saltitantes espalhados ao redor
+    for (let i = 0; i < 6; i++) {
+      const angle = (i / 6) * Math.PI * 2;
+      const dist = 12 + Math.random() * 5;
+      mobs.push({
+        id: `mob_${i}`,
+        name: `Aether Slime ${i + 1}`,
+        x: Math.sin(angle) * dist,
+        y: 0.4,
+        z: Math.cos(angle) * dist,
+        maxHp: 80,
+        hp: 80,
+        color: 0x42a5f5,
+        element: 'Water',
+        spawnX: Math.sin(angle) * dist,
+        spawnZ: Math.cos(angle) * dist,
+        state: 'idle',
+        lastJump: Math.random() * 2
+      });
+    }
+
+    // 3. Inicializador Three.js do Cenário
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0e1117);
+    scene.fog = new THREE.FogExp2(0x0e1117, 0.015);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    document.getElementById('game-canvas-container').appendChild(renderer.domElement);
+
+    // Luzes
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    dirLight.position.set(20, 40, 20);
+    scene.add(dirLight);
+
+    // Chão Low-Poly Verde
+    const floorGeo = new THREE.PlaneGeometry(100, 100, 16, 16);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, flatShading: true, roughness: 0.8 });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    scene.add(floor);
+
+    // Árvores e pedras procedurais
+    for (let i = 0; i < 30; i++) {
+      const tx = Math.random() * 80 - 50;
+      const tz = Math.random() * 80 - 50;
+      if (Math.abs(tx) < 6 && Math.abs(tz) < 6) continue;
+
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 3, 5), new THREE.MeshStandardMaterial({ color: 0x5d4037, flatShading:true }));
+      trunk.position.set(tx, 1.5, tz);
+      const leaves = new THREE.Mesh(new THREE.SphereGeometry(1.2, 4, 4), new THREE.MeshStandardMaterial({ color: 0x1b5e20, flatShading:true }));
+      leaves.position.y = 1.6;
+      trunk.add(leaves);
+      scene.add(trunk);
+    }
+
+    // Malha do Jogador (Cilindro + Esfera + Cabelo Roxo)
+    const playerGroup = new THREE.Group();
+    const pBody = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.3, 1.6, 8), new THREE.MeshStandardMaterial({ color: 0xb71c1c, flatShading:true }));
+    pBody.position.y = 0.8;
+    const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), new THREE.MeshStandardMaterial({ color: 0xffd1a9, flatShading:true }));
+    pHead.position.y = 1.7;
+    const pHair = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.2, 0.7), new THREE.MeshStandardMaterial({ color: 0x7e57c2, flatShading:true }));
+    pHair.position.set(0, 1.9, 0);
+    const pShield = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 0.6), new THREE.MeshStandardMaterial({ color: 0x78909c }));
+    pShield.position.set(-0.6, 0.8, 0.2);
+    
+    playerGroup.add(pBody); playerGroup.add(pHead); playerGroup.add(pHair); playerGroup.add(pShield);
+    scene.add(playerGroup);
+
+    // Malhas dos monstros (Slimes)
+    const mobMeshes = {};
+    mobs.forEach(mob => {
+      const mGroup = new THREE.Group();
+      mGroup.position.set(mob.x, 0.4, mob.z);
+      const mBody = new THREE.Mesh(new THREE.SphereGeometry(0.45, 6, 6), new THREE.MeshStandardMaterial({ color: mob.color, roughness:0.2, flatShading:true }));
+      mBody.name = "body";
+      mGroup.add(mBody);
+      scene.add(mGroup);
+      mobMeshes[mob.id] = mGroup;
+    });
+
+    // 4. Inputs e Rotação da Câmera
+    const keys = { w:false, a:false, s:false, d:false };
+    let cameraYaw = 0;
+    let cameraPitch = -0.6;
+    let cameraDist = 16;
+    let rightMouseDown = false;
+
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'w') keys.w = true;
+      if (k === 'a') keys.a = true;
+      if (k === 's') keys.s = true;
+      if (k === 'd') keys.d = true;
+
+      // Habilidades: Tecla 1 e 2
+      if (e.key === '1') castSkill('👊 GOLPE FÍSICO', 25, 'hit');
+      if (e.key === '2') castSkill('💥 GOLPE DUPLO', 45, 'cast');
+    });
+
+    window.addEventListener('keyup', (e) => {
+      const k = e.key.toLowerCase();
+      if (k === 'w') keys.w = false;
+      if (k === 'a') keys.a = false;
+      if (k === 's') keys.s = false;
+      if (k === 'd') keys.d = false;
+    });
+
+    // Rotação mouse
+    window.addEventListener('mousedown', (e) => {
+      if (e.button === 2) rightMouseDown = true;
+      if (e.button === 0) raycastSelect(e);
+    });
+    window.addEventListener('mouseup', (e) => { if (e.button === 2) rightMouseDown = false; });
+    window.addEventListener('mousemove', (e) => {
+      if (rightMouseDown) {
+        cameraYaw -= e.movementX * 0.007;
+        cameraPitch = Math.max(-1.1, Math.min(-0.1, cameraPitch - e.movementY * 0.007));
+      }
+    });
+    window.addEventListener('contextmenu', e => e.preventDefault());
+
+    // Raycast clique esquerdo seleciona Slime
+    function raycastSelect(e) {
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+      raycaster.setFromCamera(mouse, camera);
+
+      const targets = Object.values(mobMeshes);
+      const intersects = raycaster.intersectObjects(targets, true);
+      if (intersects.length > 0) {
+        let parentGroup = intersects[0].object;
+        while (parentGroup.parent && parentGroup.parent !== scene) parentGroup = parentGroup.parent;
+        
+        // Acha ID correspondente
+        for (let key in mobMeshes) {
+          if (mobMeshes[key] === parentGroup) {
+            selectedMobId = key;
+            const mob = mobs.find(m => m.id === key);
+            updateTargetUI(mob);
+            break;
+          }
+        }
+      }
+    }
+
+    function updateTargetUI(mob) {
+      const panel = document.getElementById('target-panel');
+      if (!mob || mob.hp <= 0) { panel.style.display = 'none'; return; }
+      panel.style.display = 'block';
+      document.getElementById('target-name').innerText = mob.name;
+      document.getElementById('target-hp-fill').style.width = `${(mob.hp / mob.maxHp) * 100}%`;
+    }
+
+    // Conjura Habilidade Local
+    function castSkill(name, damageAmt, sound) {
+      if (!selectedMobId) {
+        appendChat("SISTEMA: Clique com o mouse em um slime azul antes de tentar atacar!", 'sys');
+        return;
+      }
+      const mob = mobs.find(m => m.id === selectedMobId);
+      if (!mob || mob.hp <= 0) return;
+
+      playSfx(sound);
+
+      // Aplica dano local
+      mob.hp = Math.max(0, mob.hp - damageAmt);
+      createFloatingText(mobMeshes[mob.id].position, damageAmt, false);
+      appendChat(`COMBATE: Você usou ${name} e causou ${damageAmt} de dano no ${mob.name}!`, 'combat');
+
+      updateTargetUI(mob);
+
+      if (mob.hp <= 0) {
+        playSfx('loot');
+        appendChat(`MORTAL: ${mob.name} foi derrotado! Você coletou +15 Ouro e +20 XP.`, 'loot');
+        
+        // Remove mesh visual
+        scene.remove(mobMeshes[mob.id]);
+        selectedMobId = null;
+        updateTargetUI(null);
+
+        // Atualiza Quest
+        player.killedSlimes = Math.min(3, player.killedSlimes + 1);
+        document.getElementById('quest-item-text').innerText = `Abater Aether Slimes: ${player.killedSlimes}/3`;
+        if (player.killedSlimes === 3) {
+          playSfx('level_up');
+          document.getElementById('quest-item-1').className = 'quest-item complete';
+          document.getElementById('quest-item-text').innerHTML = 'Abater Aether Slimes: 3/3 <b style="color:#4caf50;">(CONCLUÍDO!)</b>';
+          appendChat("QUEST: Missão [Seu Primeiro Combate] concluída! Parabéns!", 'sys');
+        }
+
+        // Respawn automático do monstro em 8 segundos
+        setTimeout(() => {
+          mob.hp = mob.maxHp;
+          scene.add(mobMeshes[mob.id]);
+          appendChat(`SISTEMA: Um novo ${mob.name} ressuscitou no campo.`, 'sys');
+        }, 8000);
+      }
+    }
+
+    function appendChat(text, type) {
+      const box = document.getElementById('chat-log');
+      const line = document.createElement('div');
+      line.className = `chat-line ${type}`;
+      line.innerText = text;
+      box.appendChild(line);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function createFloatingText(pos3D, value, isHeal) {
+      // Converte coordenadas 3D para 2D na tela
+      const tempV = new THREE.Vector3(pos3D.x, pos3D.y + 1.2, pos3D.z);
+      tempV.project(camera);
+      const x = (tempV.x *  .5 + .5) * window.innerWidth;
+      const y = (-(tempV.y * .5) + .5) * window.innerHeight;
+
+      const el = document.createElement('div');
+      el.className = 'floating-text';
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.color = isHeal ? '#43a047' : '#ff5252';
+      el.innerText = value;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 1000);
+    }
+
+    // 5. Ciclo de Atualização Física e Frame (60 FPS)
+    const clock = new THREE.Clock();
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      const time = clock.getElapsedTime();
+
+      // Movimentação WASD
+      let moveX = 0, moveZ = 0;
+      if (keys.w) { moveX += Math.sin(cameraYaw); moveZ += Math.cos(cameraYaw); }
+      if (keys.s) { moveX -= Math.sin(cameraYaw); moveZ -= Math.cos(cameraYaw); }
+      if (keys.a) { moveX += Math.sin(cameraYaw + Math.PI/2); moveZ += Math.cos(cameraYaw + Math.PI/2); }
+      if (keys.d) { moveX -= Math.sin(cameraYaw + Math.PI/2); moveZ -= Math.cos(cameraYaw + Math.PI/2); }
+
+      const baseSpeed = 10 * dt;
+      if (moveX !== 0 || moveZ !== 0) {
+        const len = Math.sqrt(moveX*moveX + moveZ*moveZ);
+        player.x += (moveX / len) * baseSpeed;
+        player.z += (moveZ / len) * baseSpeed;
+        player.r = Math.atan2(moveX, moveZ);
+
+        playerGroup.position.set(player.x, player.y, player.z);
+        playerGroup.rotation.y = player.r;
+      }
+
+      // Anima slimes (Bouncy Sines!)
+      mobs.forEach(mob => {
+        const mesh = mobMeshes[mob.id];
+        if (mesh && mesh.parent === scene) {
+          const body = mesh.getObjectByName("body");
+          const jump = Math.abs(Math.sin(time * 5 + mob.lastJump)) * 0.8;
+          mesh.position.y = 0.4 + jump;
+          
+          // esmaga/estica
+          const squash = Math.sin(time * 5 + mob.lastJump) * 0.15;
+          body.scale.set(1 + squash, 1 - squash, 1 + squash);
+        }
+      });
+
+      // Câmera órbita segue o jogador
+      const camX = player.x - Math.sin(cameraYaw) * cameraDist;
+      const camZ = player.z - Math.cos(cameraYaw) * cameraDist;
+      const camY = player.y + cameraDist * 0.6;
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(player.x, player.y + 1.0, player.z);
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
