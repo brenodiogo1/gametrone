@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chronicles of Aetheria - MMORPG 3D</title>
+  <!-- Google Fonts - Roboto & Medieval Style -->
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Montserrat:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Socket.io & Three.js CDN -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+  <!-- 1. LOADING SCREEN -->
+  <div id="loading-screen" class="overlay-screen">
+    <div class="logo-title">CHRONICLES OF AETHERIA</div>
+    <div class="spinner"></div>
+    <div class="loading-status">Carregando recursos de Éter...</div>
+    <div class="progress-bar-container">
+      <div id="loading-progress" class="progress-bar" style="width: 0%;"></div>
+    </div>
+  </div>
+
+  <!-- 2. LOGIN / REGISTER SCREEN -->
+  <div id="auth-screen" class="overlay-screen hide">
+    <div class="panel login-panel">
+      <h1 class="game-title">CHRONICLES OF AETHERIA</h1>
+      <p class="subtitle">Um RPG 3D Online Persistente</p>
+
+      <div class="tabs-container">
+        <button id="tab-login" class="tab-btn active">Entrar</button>
+        <button id="tab-register" class="tab-btn">Cadastrar</button>
+      </div>
+
+      <form id="auth-form">
+        <div class="input-group">
+          <label for="auth-email">E-mail</label>
+          <input type="email" id="auth-email" placeholder="nome@provedor.com" required>
+        </div>
+        <div class="input-group">
+          <label for="auth-password">Senha</label>
+          <input type="password" id="auth-password" placeholder="Mínimo 6 caracteres" required>
+        </div>
+        <button type="submit" id="btn-auth-submit" class="btn-primary">Acessar Reino</button>
+      </form>
+      <div id="auth-error" class="error-msg"></div>
+    </div>
+  </div>
+
+  <!-- 3. CHARACTER SELECTION / CREATION SCREEN -->
+  <div id="char-screen" class="overlay-screen hide">
+    <!-- Visualização 3D do personagem rotacionando ficará à esquerda/centro por trás das janelas -->
+    <div id="char-canvas-container"></div>
+
+    <!-- Seletor à esquerda -->
+    <div class="panel char-list-panel">
+      <h2>Seus Personagens</h2>
+      <div id="characters-list-container">
+        <!-- Inserido via JS -->
+      </div>
+      <button id="btn-show-create-char" class="btn-primary">+ Novo Personagem</button>
+    </div>
+
+    <!-- Criador à direita (aparece quando clica em Novo) -->
+    <div id="char-create-panel" class="panel char-create-panel hide">
+      <h2>Criar Novo Herói</h2>
+      <div class="input-group">
+        <label for="char-new-name">Nome do Personagem</label>
+        <input type="text" id="char-new-name" placeholder="Apenas letras e números" maxlength="15">
+      </div>
+
+      <!-- Ajustes Cosméticos -->
+      <div class="customizer-section">
+        <h3>Aparência</h3>
+        
+        <div class="control-row">
+          <label>Estilo de Cabelo</label>
+          <div class="btn-group">
+            <button class="style-selector active" data-type="hair" data-value="hair_spiky">Espetado</button>
+            <button class="style-selector" data-type="hair" data-value="hair_long">Longo</button>
+            <button class="style-selector" data-type="hair" data-value="hair_ponytail">Rabo de Cavalo</button>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <label>Cor do Cabelo</label>
+          <div class="color-palette">
+            <span class="color-dot active" style="background-color: #7e57c2;" data-type="hairColor" data-value="#7e57c2"></span>
+            <span class="color-dot" style="background-color: #e53935;" data-type="hairColor" data-value="#e53935"></span>
+            <span class="color-dot" style="background-color: #ffb300;" data-type="hairColor" data-value="#ffb300"></span>
+            <span class="color-dot" style="background-color: #43a047;" data-type="hairColor" data-value="#43a047"></span>
+            <span class="color-dot" style="background-color: #1e88e5;" data-type="hairColor" data-value="#1e88e5"></span>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <label>Cor da Pele</label>
+          <div class="color-palette">
+            <span class="color-dot active" style="background-color: #ffd1a9;" data-type="skinColor" data-value="#ffd1a9"></span>
+            <span class="color-dot" style="background-color: #e0ac93;" data-type="skinColor" data-value="#e0ac93"></span>
+            <span class="color-dot" style="background-color: #8d5524;" data-type="skinColor" data-value="#8d5524"></span>
+            <span class="color-dot" style="background-color: #ffdbac;" data-type="skinColor" data-value="#ffdbac"></span>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <label>Rosto (Expressão)</label>
+          <div class="btn-group">
+            <button class="style-selector active" data-type="face" data-value="face_cheerful">Alegre</button>
+            <button class="style-selector" data-type="face" data-value="face_serious">Sério</button>
+            <button class="style-selector" data-type="face" data-value="face_determined">Firme</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="class-preview-box">
+        <h3>Classe Inicial: Adventurer</h3>
+        <p>Inicia sua jornada com espada curta e poções. No nível 10, você poderá ascender para Vanguard, Ranger, Arcanist, Acolyte ou Shadowblade!</p>
+      </div>
+
+      <div class="action-row">
+        <button id="btn-char-create-cancel" class="btn-secondary">Cancelar</button>
+        <button id="btn-char-create-submit" class="btn-primary">Confirmar Criação</button>
+      </div>
+      <div id="char-create-error" class="error-msg"></div>
+    </div>
+  </div>
+
+  <!-- 4. HUD PRINCIPAL DO JOGO (CENA 3D POR TRÁS) -->
+  <div id="game-hud" class="hide">
+    
+    <!-- 3D Render Canvas Container -->
+    <div id="game-canvas-container"></div>
+
+    <!-- TOP ESQUERDA: PERFIL DO JOGADOR -->
+    <div class="hud-profile shadow-box">
+      <div class="avatar-icon">🛡️</div>
+      <div class="profile-details">
+        <div class="row">
+          <span id="hud-char-name" class="char-name">Herói</span>
+          <span id="hud-char-class" class="char-class">Adventurer</span>
+        </div>
+        <div class="row">
+          <span class="lvl-badge">Nível <b id="hud-char-level">1</b></span>
+        </div>
+        <!-- HP Bar -->
+        <div class="bar-container hp">
+          <div id="hud-hp-fill" class="bar-fill hp" style="width: 100%;"></div>
+          <span class="bar-text"><span id="hud-hp-current">100</span>/<span id="hud-hp-max">100</span></span>
+        </div>
+        <!-- MP Bar -->
+        <div class="bar-container mp">
+          <div id="hud-mp-fill" class="bar-fill mp" style="width: 100%;"></div>
+          <span class="bar-text"><span id="hud-mp-current">50</span>/<span id="hud-mp-max">50</span></span>
+        </div>
+        <!-- XP Bar -->
+        <div class="bar-container xp">
+          <div id="hud-xp-fill" class="bar-fill xp" style="width: 0%;"></div>
+          <span class="bar-text">XP <span id="hud-xp-percent">0</span>%</span>
+        </div>
+        <!-- Gold -->
+        <div class="gold-display">💰 <span id="hud-gold">100</span> G</div>
+      </div>
+    </div>
+
+    <!-- TOP CENTRO: INFORMAÇÕES DO ALVO -->
+    <div id="hud-target-panel" class="hud-target shadow-box hide">
+      <div class="target-row">
+        <span id="hud-target-name" class="target-name">Monstro</span>
+        <span id="hud-target-level" class="target-level">Nv 3</span>
+      </div>
+      <div class="bar-container hp">
+        <div id="hud-target-hp-fill" class="bar-fill hp" style="width: 100%;"></div>
+        <span class="bar-text"><span id="hud-target-hp-percent">100</span>%</span>
+      </div>
+      <div class="target-meta">Elemento: <b id="hud-target-element">Water</b></div>
+    </div>
+
+    <!-- TOP DIREITA: MAPA / COORDENADAS -->
+    <div class="hud-map-info shadow-box">
+      <div class="map-name" id="hud-map-name">Aetheria Town</div>
+      <div class="coords">X: <span id="hud-coord-x">0</span> | Z: <span id="hud-coord-z">0</span></div>
+      <button id="btn-open-admin-hud" class="btn-hud-small hide">⚙️ Admin</button>
+    </div>
+
+    <!-- DIREITA: QUEST TRACKER -->
+    <div class="quest-tracker shadow-box">
+      <h3>📜 Missões Ativas</h3>
+      <div id="quest-tracker-list">
+        <p class="empty-quests">Nenhuma missão ativa. Fale com o Mentor Eldrin!</p>
+      </div>
+    </div>
+
+    <!-- BOTTOM DIREITA: MENUS E MENU DE BOTÕES -->
+    <div class="hud-bottom-menu">
+      <button class="btn-menu" id="btn-toggle-stats" title="Atributos (C)">👤 Atributos</button>
+      <button class="btn-menu" id="btn-toggle-inv" title="Inventário (I)">🎒 Inventário</button>
+      <button class="btn-menu" id="btn-toggle-skills" title="Habilidades (K)">⚔️ Skills</button>
+      <button class="btn-menu" id="btn-toggle-quests" title="Missões (Q)">📜 Quests</button>
+      <button class="btn-menu" id="btn-toggle-help" title="Ajuda (Esc)">❓ Ajuda</button>
+      <button class="btn-menu logout" id="btn-logout" title="Sair do Jogo">🚪 Sair</button>
+    </div>
+
+    <!-- BOTTOM CENTRO: HOTBAR DE HABILIDADES -->
+    <div class="hud-hotbar">
+      <div class="hotbar-slot" id="slot-skill-0" data-key="1">
+        <span class="key-indicator">1</span>
+        <div class="icon">👊</div>
+        <span class="cooldown-overlay" id="cd-1"></span>
+        <div class="tooltip-skill">Golpe Básico<br><small>Ataque padrão corporal físico</small></div>
+      </div>
+      <div class="hotbar-slot" id="slot-skill-1" data-key="2">
+        <span class="key-indicator">2</span>
+        <div class="icon">💥</div>
+        <span class="cooldown-overlay" id="cd-2"></span>
+        <div class="tooltip-skill">Ataque Duplo<br><small>180% de dano físico (10 MP)</small></div>
+      </div>
+      <div class="hotbar-slotLocked" id="slot-skill-2" data-key="3">
+        <span class="key-indicator">3</span>
+        <div class="icon">❄️</div>
+        <span class="cooldown-overlay" id="cd-3"></span>
+        <div class="tooltip-skill">Ainda Bloqueado<br><small>Desbloqueia na classe avançada</small></div>
+      </div>
+      <div class="hotbar-slotLocked" id="slot-skill-3" data-key="4">
+        <span class="key-indicator">4</span>
+        <div class="icon">🔥</div>
+        <span class="cooldown-overlay" id="cd-4"></span>
+        <div class="tooltip-skill">Ainda Bloqueado<br><small>Desbloqueia na classe avançada</small></div>
+      </div>
+      <div class="hotbar-slotLocked" id="slot-skill-4" data-key="5">
+        <span class="key-indicator">5</span>
+        <div class="icon">💚</div>
+        <span class="cooldown-overlay" id="cd-5"></span>
+        <div class="tooltip-skill">Ainda Bloqueado<br><small>Desbloqueia na classe avançada</small></div>
+      </div>
+      <div class="hotbar-slot" id="slot-item-0" data-key="6">
+        <span class="key-indicator">6</span>
+        <div class="icon">🧪</div>
+        <span class="qty" id="hotbar-pot-qty">0</span>
+        <div class="tooltip-skill">Poção Vermelha<br><small>Restaura 100 HP</small></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ESQUERDA: CHAT WINDOW -->
+    <div class="hud-chat shadow-box">
+      <div class="chat-tabs">
+        <button class="chat-tab-btn active" data-channel="local">Local</button>
+        <button class="chat-tab-btn" data-channel="global">Global</button>
+        <button class="chat-tab-btn" data-channel="system">Sistema</button>
+      </div>
+      <div class="chat-log" id="chat-log-box">
+        <div class="chat-line sys"><span class="time">[12:00]</span> Bem-vindo ao Chronicles of Aetheria! Fale com o Mentor Eldrin para iniciar.</div>
+      </div>
+      <form id="chat-form">
+        <input type="text" id="chat-input" placeholder="Aperte Enter para digitar..." maxlength="100" autocomplete="off">
+        <button type="submit">Enviar</button>
+      </form>
+    </div>
+
+    <!-- OVERLAY WINDOWS (INTERATIVAS) -->
+
+    <!-- WINDOW 1: PERSONAGEM / ATRIBUTOS -->
+    <div id="win-stats" class="window shadow-box hide">
+      <div class="window-header">
+        <span>👤 Estatísticas de Atributos</span>
+        <button class="close-win">&times;</button>
+      </div>
+      <div class="window-body">
+        <div class="points-avail">Pontos Disponíveis: <b id="stat-avail-points">0</b></div>
+        <div class="stat-list">
+          <div class="stat-row">
+            <span>Strength (FOR): <b id="stat-val-str">5</b></span>
+            <button class="btn-add-stat" data-stat="str">+</button>
+          </div>
+          <div class="stat-row">
+            <span>Vitality (VIT): <b id="stat-val-vit">5</b></span>
+            <button class="btn-add-stat" data-stat="vit">+</button>
+          </div>
+          <div class="stat-row">
+            <span>Agility (AGI): <b id="stat-val-agi">5</b></span>
+            <button class="btn-add-stat" data-stat="agi">+</button>
+          </div>
+          <div class="stat-row">
+            <span>Dexterity (DES): <b id="stat-val-dex">5</b></span>
+            <button class="btn-add-stat" data-stat="dex">+</button>
+          </div>
+          <div class="stat-row">
+            <span>Intelligence (INT): <b id="stat-val-int">5</b></span>
+            <button class="btn-add-stat" data-stat="int">+</button>
+          </div>
+          <div class="stat-row">
+            <span>Spirit (ESP): <b id="stat-val-spr">5</b></span>
+            <button class="btn-add-stat" data-stat="spr">+</button>
+          </div>
+          <div class="stat-row">
+            <span>Luck (SOR): <b id="stat-val-luk">5</b></span>
+            <button class="btn-add-stat" data-stat="luk">+</button>
+          </div>
+        </div>
+
+        <h4 class="sub">Atributos Derivados</h4>
+        <div class="derived-grid">
+          <div>Ataque Físico: <b id="stat-der-patk">10</b></div>
+          <div>Ataque Mágico: <b id="stat-der-matk">10</b></div>
+          <div>Defesa Física: <b id="stat-der-pdef">5</b></div>
+          <div>Defesa Mágica: <b id="stat-der-mdef">5</b></div>
+          <div>Chance Crítica: <b id="stat-der-crit">5%</b></div>
+          <div>Esquiva: <b id="stat-der-dodge">5%</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WINDOW 2: INVENTÁRIO -->
+    <div id="win-inventory" class="window shadow-box hide">
+      <div class="window-header">
+        <span>🎒 Inventário Mochila</span>
+        <button class="close-win">&times;</button>
+      </div>
+      <div class="window-body">
+        <!-- Grid do Inventário (30 slots) -->
+        <div class="inventory-grid" id="inventory-grid-slots">
+          <!-- Gerado dinamicamente via JS -->
+        </div>
+
+        <h4 class="sub">Equipamentos Atuais</h4>
+        <div class="eq-slots-grid">
+          <div class="eq-slot" data-col="head" id="eq-head">Capuz: Nenhum</div>
+          <div class="eq-slot" data-col="body" id="eq-body">Armadura: Nenhum</div>
+          <div class="eq-slot" data-col="main_hand" id="eq-main_hand">Mão Direita: Nenhum</div>
+          <div class="eq-slot" data-col="off_hand" id="eq-off_hand">Mão Esquerda: Nenhum</div>
+          <div class="eq-slot" data-col="feet" id="eq-feet">Botas: Nenhum</div>
+          <div class="eq-slot" data-col="cape" id="eq-cape">Capa: Nenhum</div>
+          <div class="eq-slot" data-col="accessory1" id="eq-accessory1">Anel 1: Nenhum</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WINDOW 3: HABILIDADES (SKILL TREE) -->
+    <div id="win-skills" class="window shadow-box hide">
+      <div class="window-header">
+        <span>⚔️ Árvore de Habilidades</span>
+        <button class="close-win">&times;</button>
+      </div>
+      <div class="window-body">
+        <p>Pontos de Habilidade: <b id="skill-avail-points">0</b></p>
+        <div id="skills-tree-list">
+          <!-- Inserido dinamicamente com base na classe -->
+        </div>
+      </div>
+    </div>
+
+    <!-- WINDOW 4: DIALOGO NPC / STORE -->
+    <div id="win-npc-dialog" class="window shadow-box hide">
+      <div class="window-header">
+        <span id="npc-dialog-name">NPC</span>
+        <button class="close-win">&times;</button>
+      </div>
+      <div class="window-body">
+        <p id="npc-dialog-text" class="npc-text">Diálogo...</p>
+        
+        <!-- Bloco de Quests se houver -->
+        <div id="npc-quests-area" class="hide">
+          <h5>Missões Disponíveis:</h5>
+          <div id="npc-quests-avail-list"></div>
+          <h5>Suas Missões Ativas com este NPC:</h5>
+          <div id="npc-quests-active-list"></div>
+        </div>
+
+        <!-- Bloco de Loja / Armazém se aplicável -->
+        <div id="npc-shop-area" class="hide">
+          <h5>🛍️ Loja de Itens</h5>
+          <div class="shop-grid" id="npc-shop-items-grid">
+            <!-- Itens de compra -->
+          </div>
+          <p class="sell-tip"><small>Dica: Para VENDER um item, abra seu Inventário e clique duas vezes nele em frente ao comerciante.</small></p>
+        </div>
+
+        <!-- Bloco de Troca de Classe -->
+        <div id="npc-class-area" class="hide">
+          <h5>Escolha seu Caminho:</h5>
+          <div class="class-choose-grid">
+            <button class="btn-class-choose" data-class="Vanguard">🛡️ Vanguard</button>
+            <button class="btn-class-choose" data-class="Ranger">🏹 Ranger</button>
+            <button class="btn-class-choose" data-class="Arcanist">🔥 Arcanist</button>
+            <button class="btn-class-choose" data-class="Acolyte">💚 Acolyte</button>
+            <button class="btn-class-choose" data-class="Shadowblade">🗡️ Shadowblade</button>
+          </div>
+        </div>
+
+        <div id="npc-dialog-actions" class="dialog-actions">
+          <button id="btn-npc-dialog-close" class="btn-primary">Fechar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WINDOW 5: AJUDA / CONTROLES -->
+    <div id="win-help" class="window shadow-box hide">
+      <div class="window-header">
+        <span>❓ Controles do Reino</span>
+        <button class="close-win">&times;</button>
+      </div>
+      <div class="window-body text-body">
+        <p><b>Movimentação:</b> Teclas <b>W, A, S, D</b> para andar, mouse para girar.</p>
+        <p><b>Câmera:</b> Segure e arraste o <b>Botão Direito do Mouse</b> para rotacionar a perspectiva, use scroll para dar Zoom.</p>
+        <p><b>Combate:</b> Clique com o <b>Botão Esquerdo</b> sobre qualquer criatura para selecioná-la. Use teclas numéricas <b>1, 2, 3...</b> para conjurar as habilidades nos alvos!</p>
+        <p><b>Portal / Viagem:</b> Aproxime-se dos portais de luz azul para transitar entre os mapas.</p>
+        <p><b>Atalhos rápidos:</b></p>
+        <ul>
+          <li><b>C</b> - Atributos e Distribuição</li>
+          <li><b>I</b> - Inventário mochila e Equipar</li>
+          <li><b>K</b> - Árvore de Habilidades</li>
+          <li><b>Enter</b> - Ativar caixa de Chat</li>
+          <li><b>Esc</b> - Fechar janelas / Abrir Ajuda</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- WINDOW 6: PAINEL ADMINISTRATIVO (ADMIN PORTAL) -->
+    <div id="win-admin" class="window shadow-box hide">
+      <div class="window-header">
+        <span>⚙️ Painel de Administração Real</span>
+        <button class="close-win">&times;</button>
+      </div>
+      <div class="window-body">
+        <div class="admin-grid">
+          <div>
+            <h4>Comandos Rápidos</h4>
+            <button class="btn-admin-cmd" data-cmd="/gold 5000">Conceder 5000 Ouro</button>
+            <button class="btn-admin-cmd" data-cmd="/tp Capital">Teleporte: Capital</button>
+            <button class="btn-admin-cmd" data-cmd="/tp Town">Teleporte: Aldeia Inicial</button>
+            <button class="btn-admin-cmd" data-cmd="/tp Dungeon">Teleporte: Ruínas Dungeon</button>
+            <button class="btn-admin-cmd" data-cmd="/spawn AetherLorde">Spawn: Chefe Mundial (Aether Lorde)</button>
+            <button class="btn-admin-cmd" data-cmd="/spawn TreantKing">Spawn: Mini-boss (Treant King)</button>
+          </div>
+          <div>
+            <h4>Logs de Atividades Suspeitas / Auditoria</h4>
+            <div id="admin-logs-box" class="admin-log-box">
+              <p>Carregando dados de auditoria...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEEDBACK FLUTUANTE DE MORTE E RESURRECT -->
+    <div id="death-overlay" class="overlay-screen hide">
+      <div class="death-panel">
+        <h1 class="dead-title">VOCÊ FOI DERROTADO</h1>
+        <p>Suas forças se esvairam sob os impactos do caos de éter.</p>
+        <p class="penalty-text">Penalidade: Perda de 2% de experiência de nível.</p>
+        <button id="btn-request-resurrect" class="btn-primary-glowing">Retornar para Cidade (Respawn)</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Client Source Codes -->
+  <script src="js/renderer.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

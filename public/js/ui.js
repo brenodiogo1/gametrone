@@ -101,6 +101,7 @@ class GameUI {
     document.addEventListener('keydown', (e) => {
       // Se estiver digitando no chat, não dispara atalhos de janelas
       if (document.activeElement.id === 'chat-input') return;
+      if (!e.key) return;
 
       const key = e.key.toLowerCase();
       if (key === 'c') this.toggleWindow('win-stats');

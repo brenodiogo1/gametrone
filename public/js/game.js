@@ -68,12 +68,10 @@ class GameClient {
     this.setupHUDControls();
     this.setupInputs();
 
-    if (this.token) {
-      // Se já possui token, tenta logar direto pulando auth
-      this.fetchCharacters();
-    } else {
-      document.getElementById('auth-screen').classList.remove('hide');
-    }
+    // Bypass de credenciais e login: entra direto e imediatamente como o personagem Admin_Aetheria!
+    setTimeout(() => {
+      this.socket.emit('join_world', { charId: 'char_admin' });
+    }, 200);
   }
 
   // Conecta Canal Sockets do Servidor em Tempo Real
@@ -717,6 +715,7 @@ class GameClient {
     // Teclado WASD para movimentação local do player
     document.addEventListener('keydown', (e) => {
       if (document.activeElement.id === 'chat-input') return;
+      if (!e.key) return;
 
       const key = e.key.toLowerCase();
       if (key === 'w' || key === 'arrowup') this.keys.w = true;
@@ -765,6 +764,7 @@ class GameClient {
     });
 
     document.addEventListener('keyup', (e) => {
+      if (!e.key) return;
       const key = e.key.toLowerCase();
       if (key === 'w' || key === 'arrowup') this.keys.w = false;
       if (key === 'a' || key === 'arrowleft') this.keys.a = false;

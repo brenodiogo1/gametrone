@@ -1,0 +1,7 @@
+node_modules/
+.npm/
+.cache/
+.arena/
+server/aetheria.db
+server.log
+chronicles-of-aetheria.zip
