@@ -1,11 +1,6 @@
-# CHRONICLES OF AETHERIA (CÔNICAS DE AETHERIA)
-### MMORPG 3D Multiplayer Online Autoritativo - Vertical Slice Completo
+# Chronicles of Aetheria
 
-**Chronicles of Aetheria** é um jogo online persistente completo inspirado na era de ouro dos MMORPGs clássicos (como Ragnarok Online). O jogo traz uma fusão elegante de gráficos 3D Low-Poly estilizados e processamento de estado de rede autoritativo e robusto no servidor.
-
-O núcleo do projeto foi construído do zero sem dados fictícios (mockups). Todo movimento, combate, ganho de experiência, drops de itens, conclusões de missões (quests) e comércio é validado e processado no servidor por meio de uma arquitetura modular moderna e segura baseada em Node.js, Socket.io e SQLite.
-
----
+Browser-based multiplayer RPG prototype built with Node.js, Express, Socket.IO and SQLite. This repository contains the game server, browser client and development documentation. Treat it as a development project; production readiness has not been established.
 
 ## 🚀 Como Iniciar o Servidor do Jogo Localmente
 
@@ -124,3 +119,7 @@ O projeto é dividido em uma estrutura modular limpa separando cliente, servidor
         ├── ui.js              # Gerenciador de janelas HUD e Sfx Procedurais
         └── game.js            # Loop de input local, Raycast 3D e sockets cliente
 ```
+
+## License
+
+This project declares the ISC License in `package.json`; see [LICENSE](LICENSE) for its text. Existing credits and third-party licenses remain applicable.
